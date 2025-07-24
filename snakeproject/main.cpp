@@ -24,7 +24,6 @@ enum tileType {
 
 HANDLE std_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-char snake_map[MAP_SIZE_Y][MAP_SIZE_X] = {};
 int maxAppleCount = 5;
 int curAppleCount = 0;
 
@@ -35,32 +34,24 @@ void GotoXY(short x, short y) {
 	GotoXY({ x, y });
 }
 
-void PrintMap() {
-	for (int i = -1; i <= MAP_SIZE_Y; ++i) {
-		for (int j = -1; j <= MAP_SIZE_X; ++j) {
-			if (i == -1 || i == MAP_SIZE_Y || j == -1 || j == MAP_SIZE_X) {
-				cout << "¡á";
-				continue;
-			}
-
-			switch (snake_map[i][j])
-			{
-			case None:
-				cout << "¡Þ";
-				break;
-			case Apple:
-				cout << "¡Ý";
-				break;
-			}
-		}
-		cout << "\n";
-	}
-}
 class Map {
 private:
-	char map[50][50];
+	char map[50][50] = {};
+
+	void SetApple() {
+		map[rand() % 51][rand() % 51] = Apple;
+	}
 public:
+	Map() {
+		for (int i = 0; i < 5; ++i) {
+			SetApple();
+		}
+	}
+	char GetTile(COORD pos) {
+		return map[pos.Y][pos.X];
+	}
 	void PrintMap() {
+		GotoXY(0, 0);
 		for (int i = -1; i <= MAP_SIZE_Y; ++i) {
 			for (int j = -1; j <= MAP_SIZE_X; ++j) {
 				if (i == -1 || i == MAP_SIZE_Y || j == -1 || j == MAP_SIZE_X) {
@@ -71,7 +62,7 @@ public:
 				switch (map[i][j])
 				{
 				case None:
-					cout << "¡Þ";
+					cout << "  ";
 					break;
 				case Apple:
 					cout << "¡Ý";
@@ -80,6 +71,10 @@ public:
 			}
 			cout << "\n";
 		}
+	}
+	void Eat(COORD pos) {
+		map[pos.Y][pos.X] = None;
+		SetApple();
 	}
 };
 class Snake
@@ -110,7 +105,11 @@ public:
 			return;
 		curDir = dir;
 	}
-	void Next() {
+	void Next(Map &map) {
+		if (map.GetTile(curPos) == Apple) {
+			map.Eat(curPos);
+			length++;
+		}
 		if (path.size() > length - 1) {
 			path.pop_back();
 		}
@@ -126,19 +125,15 @@ public:
 			}
 		}
 		curPos = { nextX, nextY };
-		if (snake_map[curPos.Y][curPos.X] == Apple) {
-			snake_map[curPos.Y][curPos.Y] = None;
-			GotoXY({ (short)(nextX * 2 + 2), (short)(nextY) });
-			//cout << "  ";
-			curAppleCount--;
-			length++;
-		}
 	}
 	void PrintSnake() {
 		for (COORD t : path) {
 			GotoXY({ (short)(t.X * 2 + 2), (short)(t.Y + 1) });
 
-			cout << "¡Ú";
+			if (t.X == path.front().X && t.Y == path.front().Y)
+				cout << "¡Ú";
+			else
+				cout << "¡Ù";
 		}
 	}
 };
@@ -154,11 +149,12 @@ int main() {
 
 	bool isAppRunning = true;
 
+	Map map = Map();
 	Snake snake = Snake({ 25, 25 }, { 1, 0 });
 
 	for (int i = 0; i < 5; ++i) {
 		curAppleCount++;
-		snake_map[rand() % 51][rand() % 51] = Apple;
+		//snake_map[rand() % 51][rand() % 51] = Apple;
 	}
 
 	while (snake.GetAlive()) {
@@ -186,15 +182,9 @@ int main() {
 				break;
 			}
 		}
-		snake.Next();
+		snake.Next(map);
 
-		if (curAppleCount < maxAppleCount) {
-			curAppleCount++;
-			snake_map[rand() % 51][rand() % 51] = Apple;
-		}
-
-		GotoXY(0, 0);
-		PrintMap();
+		map.PrintMap();
 		snake.PrintSnake();
 		SLP(50);
 	}
