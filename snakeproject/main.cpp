@@ -43,7 +43,7 @@ private:
 	}
 public:
 	Map() {
-		for (int i = 0; i < 5; ++i) {
+		for (int i = 0; i < 20; ++i) {
 			SetApple();
 		}
 	}
@@ -151,11 +151,6 @@ int main() {
 
 	Map map = Map();
 	Snake snake = Snake({ 25, 25 }, { 1, 0 });
-
-	for (int i = 0; i < 5; ++i) {
-		curAppleCount++;
-		//snake_map[rand() % 51][rand() % 51] = Apple;
-	}
 
 	while (snake.GetAlive()) {
 		//Å°ÀÔ·Â
