@@ -13,8 +13,6 @@
 
 #define SLP(X) Sleep(X)
 #define CLS system("cls")
-#define MAP_SIZE_X 50
-#define MAP_SIZE_Y 50
 using namespace std;
 
 enum tileType {
@@ -24,18 +22,87 @@ enum tileType {
 
 HANDLE std_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-int maxAppleCount = 5;
-int curAppleCount = 0;
-
 void GotoXY(COORD pos) {
 	SetConsoleCursorPosition(std_output_handle, pos);
 }
 void GotoXY(short x, short y) {
 	GotoXY({ x, y });
 }
+class Console {
+	HANDLE h_stdOutput;
+	HANDLE h_console[2] = {};
+	bool screenIndex = false;
+	CONSOLE_SCREEN_BUFFER_INFOEX _consoleInfo = {};
+	CONSOLE_CURSOR_INFO _cursorInfo = {};
+	
 
+	void Init(COORD consoleSize) {
+		h_stdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+
+		CONSOLE_FONT_INFOEX cfi;
+		cfi.cbSize = sizeof(cfi);
+		cfi.nFont = 0;
+		cfi.dwFontSize.X = 12;                   // Width of each character in the font
+		cfi.dwFontSize.Y = 12;                  // Height
+		SetCurrentConsoleFontEx(h_stdOutput, FALSE, &cfi);
+
+		screenIndex = false;
+
+		//CursorInfo Setting
+		_cursorInfo.bVisible = false;
+		_cursorInfo.dwSize = 1;
+		//ConsoleInfo Setting
+		GetConsoleScreenBufferInfoEx(h_stdOutput,&_consoleInfo);
+		_consoleInfo.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
+		_consoleInfo.srWindow.Left = 0;
+		_consoleInfo.srWindow.Top = 0;
+		_consoleInfo.srWindow.Right = consoleSize.X - 1;
+		_consoleInfo.srWindow.Bottom = consoleSize.Y - 1;
+		SetConsoleScreenBufferInfoEx(h_stdOutput, &_consoleInfo);
+		SetConsoleWindowInfo(h_stdOutput, true, &_consoleInfo.srWindow);
+
+		for (int i = 0; i < 2; ++i) {
+			h_console[i] = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, NULL, CONSOLE_TEXTMODE_BUFFER, NULL);
+			SetConsoleCursorInfo(h_console[i], &_cursorInfo);
+			SetConsoleScreenBufferInfoEx(h_console[i], &_consoleInfo);
+			//ShowWindow(GetConsoleWindow(), SW_MAXIMIZE);
+		}
+	}
+
+	HANDLE CurConsole() {
+		return h_console[screenIndex?0:1];
+	}
+public:
+	Console(COORD consoleSize) {
+		Init(consoleSize);
+	}
+	Console() : Console({ 120, 54 }) {}
+	~Console() {
+
+	}
+	void Flip() {
+		SetConsoleActiveScreenBuffer(CurConsole());
+		screenIndex = !screenIndex;
+	}
+	void PrintConsoleBuffer(string s) {
+		DWORD dw;
+		if (!WriteFile(CurConsole(), s.c_str(), strlen(s.c_str()), &dw, NULL)) {
+			cout << "tlqkf";
+		}
+	}
+	void Render(string s) {
+		if (!SetConsoleActiveScreenBuffer(h_console[1]))
+		{
+			cout << "Why?";
+		}
+		/*PrintConsoleBuffer(s);
+		Flip();*/
+	}
+};
 class Map {
 private:
+	int mapSizeX;
+	int mapSizeY;
 	char map[50][50] = {};
 
 	void SetApple() {
@@ -47,14 +114,17 @@ public:
 			SetApple();
 		}
 	}
+	bool isValidCoord(COORD pos) {
+		return (pos.X >= 0 && pos.X < mapSizeX && pos.Y >= 0 && pos.Y < mapSizeY);
+	}
 	char GetTile(COORD pos) {
 		return map[pos.Y][pos.X];
 	}
 	void PrintMap() {
 		GotoXY(0, 0);
-		for (int i = -1; i <= MAP_SIZE_Y; ++i) {
-			for (int j = -1; j <= MAP_SIZE_X; ++j) {
-				if (i == -1 || i == MAP_SIZE_Y || j == -1 || j == MAP_SIZE_X) {
+		for (int i = -1; i <= mapSizeY; ++i) {
+			for (int j = -1; j <= mapSizeX; ++j) {
+				if (i == -1 || i == mapSizeY || j == -1 || j == mapSizeX) {
 					cout << "■";
 					continue;
 				}
@@ -116,7 +186,7 @@ public:
 		path.push_front(curPos);
 		short nextX = curPos.X + curDir.X;
 		short nextY = curPos.Y + curDir.Y;
-		if (nextX < 0 || nextX >= MAP_SIZE_X || nextY < 0 || nextY >= MAP_SIZE_Y)
+		if (!map.isValidCoord(curPos))
 			isAlive = false;
 		for (COORD t : path) {
 			if (t.X == nextX && t.Y == nextY) {
@@ -141,48 +211,52 @@ public:
 int main() {
 	//INIT
 	srand(time(NULL));
-	system("mode con cols=120 lines=54 | title snake_game");
+	/*system("mode con cols=120 lines=54 | title snake_game");
 	CONSOLE_CURSOR_INFO cursorInfo = {};
 	cursorInfo.bVisible = false;
 	cursorInfo.dwSize = 1;
-	SetConsoleCursorInfo(std_output_handle, &cursorInfo);
+	SetConsoleCursorInfo(std_output_handle, &cursorInfo);*/
 
 	bool isAppRunning = true;
+	Console console = Console();
+	
+	console.Render("Tasddsasda");
+	console.Render("Tasddsasda");
 
-	Map map = Map();
-	Snake snake = Snake({ 25, 25 }, { 1, 0 });
+	//Map map = Map();
+	//Snake snake = Snake({ 25, 25 }, { 1, 0 });
 
-	while (snake.GetAlive()) {
-		//키입력
-		if (_kbhit()) {
-			char key = _getch();
+	//while (snake.GetAlive()) {
+	//	//키입력
+	//	if (_kbhit()) {
+	//		char key = _getch();
 
-			switch (key)
-			{
-			case 'W':
-			case 'w':
-				snake.SetDir({ 0, -1 });
-				break;
-			case 'S':
-			case 's':
-				snake.SetDir({ 0, 1 });
-				break;
-			case 'A':
-			case 'a':
-				snake.SetDir({ -1, 0 });
-				break;
-			case 'D':
-			case 'd':
-				snake.SetDir({ 1, 0 });
-				break;
-			}
-		}
-		snake.Next(map);
+	//		switch (key)
+	//		{
+	//		case 'W':
+	//		case 'w':
+	//			snake.SetDir({ 0, -1 });
+	//			break;
+	//		case 'S':
+	//		case 's':
+	//			snake.SetDir({ 0, 1 });
+	//			break;
+	//		case 'A':
+	//		case 'a':
+	//			snake.SetDir({ -1, 0 });
+	//			break;
+	//		case 'D':
+	//		case 'd':
+	//			snake.SetDir({ 1, 0 });
+	//			break;
+	//		}
+	//	}
+	//	snake.Next(map);
 
-		map.PrintMap();
-		snake.PrintSnake();
-		SLP(50);
-	}
+	//	map.PrintMap();
+	//	snake.PrintSnake();
+	//	SLP(50);
+	//}
 
 	//콘솔창 일시정지 (종료 로그 안띄우게)
 	system("pause>nul");
