@@ -52,25 +52,26 @@ class Console {
 		_cursorInfo.bVisible = false;
 		_cursorInfo.dwSize = 1;
 		//ConsoleInfo Setting
-		GetConsoleScreenBufferInfoEx(h_stdOutput,&_consoleInfo);
+		ZeroMemory(&_consoleInfo, sizeof(CONSOLE_SCREEN_BUFFER_INFOEX));
 		_consoleInfo.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
+		GetConsoleScreenBufferInfoEx(h_stdOutput,&_consoleInfo);
 		_consoleInfo.srWindow.Left = 0;
 		_consoleInfo.srWindow.Top = 0;
 		_consoleInfo.srWindow.Right = consoleSize.X - 1;
 		_consoleInfo.srWindow.Bottom = consoleSize.Y - 1;
-		SetConsoleScreenBufferInfoEx(h_stdOutput, &_consoleInfo);
 		SetConsoleWindowInfo(h_stdOutput, true, &_consoleInfo.srWindow);
 
 		for (int i = 0; i < 2; ++i) {
 			h_console[i] = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, NULL, CONSOLE_TEXTMODE_BUFFER, NULL);
 			SetConsoleCursorInfo(h_console[i], &_cursorInfo);
 			SetConsoleScreenBufferInfoEx(h_console[i], &_consoleInfo);
+			//SetConsoleScreenBufferInfoEx(h_stdOutput, &_consoleInfo);
 			//ShowWindow(GetConsoleWindow(), SW_MAXIMIZE);
 		}
 	}
 
 	HANDLE CurConsole() {
-		return h_console[screenIndex?0:1];
+		return h_console[screenIndex?1:0];
 	}
 public:
 	Console(COORD consoleSize) {
@@ -84,19 +85,17 @@ public:
 		SetConsoleActiveScreenBuffer(CurConsole());
 		screenIndex = !screenIndex;
 	}
-	void PrintConsoleBuffer(string s) {
+	void Print(string s, COORD pos) {
 		DWORD dw;
-		if (!WriteFile(CurConsole(), s.c_str(), strlen(s.c_str()), &dw, NULL)) {
-			cout << "tlqkf";
-		}
+		SetConsoleCursorPosition(CurConsole(), pos);
+		WriteFile(CurConsole(), s.c_str(), strlen(s.c_str()), &dw, NULL);
 	}
-	void Render(string s) {
-		if (!SetConsoleActiveScreenBuffer(h_console[1]))
-		{
-			cout << "Why?";
-		}
-		/*PrintConsoleBuffer(s);
-		Flip();*/
+	void Print(string s) {
+		Print(s, { 0, 0 });
+	}
+	void Render() {
+		//Print(s);
+		Flip();
 	}
 };
 class Map {
@@ -106,10 +105,12 @@ private:
 	char map[50][50] = {};
 
 	void SetApple() {
-		map[rand() % 51][rand() % 51] = Apple;
+		map[rand() % 50][rand() % 50] = Apple;
 	}
 public:
 	Map() {
+		mapSizeX = 50;
+		mapSizeY = 50;
 		for (int i = 0; i < 20; ++i) {
 			SetApple();
 		}
@@ -120,26 +121,26 @@ public:
 	char GetTile(COORD pos) {
 		return map[pos.Y][pos.X];
 	}
-	void PrintMap() {
+	void PrintMap(Console console) {
 		GotoXY(0, 0);
 		for (int i = -1; i <= mapSizeY; ++i) {
 			for (int j = -1; j <= mapSizeX; ++j) {
+				COORD printPos = {(j + 1) * 2, i + 1};
 				if (i == -1 || i == mapSizeY || j == -1 || j == mapSizeX) {
-					cout << "■";
+					console.Print("■", printPos);
 					continue;
 				}
 
 				switch (map[i][j])
 				{
 				case None:
-					cout << "  ";
+					console.Print("  ", printPos);
 					break;
 				case Apple:
-					cout << "◎";
+					console.Print("◎", printPos);
 					break;
 				}
 			}
-			cout << "\n";
 		}
 	}
 	void Eat(COORD pos) {
@@ -196,14 +197,14 @@ public:
 		}
 		curPos = { nextX, nextY };
 	}
-	void PrintSnake() {
+	void PrintSnake(Console console) {
 		for (COORD t : path) {
-			GotoXY({ (short)(t.X * 2 + 2), (short)(t.Y + 1) });
+			COORD pos = { (short)(t.X * 2 + 2), (short)(t.Y + 1) };
 
 			if (t.X == path.front().X && t.Y == path.front().Y)
-				cout << "★";
+				console.Print("★", pos);
 			else
-				cout << "☆";
+				console.Print("☆", pos);
 		}
 	}
 };
@@ -216,48 +217,47 @@ int main() {
 	cursorInfo.bVisible = false;
 	cursorInfo.dwSize = 1;
 	SetConsoleCursorInfo(std_output_handle, &cursorInfo);*/
+	Console console = Console(); 
 
 	bool isAppRunning = true;
-	Console console = Console();
-	
-	console.Render("Tasddsasda");
-	console.Render("Tasddsasda");
 
-	//Map map = Map();
-	//Snake snake = Snake({ 25, 25 }, { 1, 0 });
+	Map map = Map();
+	Snake snake = Snake({ 25, 25 }, { 1, 0 });
 
-	//while (snake.GetAlive()) {
-	//	//키입력
-	//	if (_kbhit()) {
-	//		char key = _getch();
+	while (snake.GetAlive()) {
+		//키입력
+		if (_kbhit()) {
+			char key = _getch();
 
-	//		switch (key)
-	//		{
-	//		case 'W':
-	//		case 'w':
-	//			snake.SetDir({ 0, -1 });
-	//			break;
-	//		case 'S':
-	//		case 's':
-	//			snake.SetDir({ 0, 1 });
-	//			break;
-	//		case 'A':
-	//		case 'a':
-	//			snake.SetDir({ -1, 0 });
-	//			break;
-	//		case 'D':
-	//		case 'd':
-	//			snake.SetDir({ 1, 0 });
-	//			break;
-	//		}
-	//	}
-	//	snake.Next(map);
+			switch (key)
+			{
+			case 'W':
+			case 'w':
+				snake.SetDir({ 0, -1 });
+				break;
+			case 'S':
+			case 's':
+				snake.SetDir({ 0, 1 });
+				break;
+			case 'A':
+			case 'a':
+				snake.SetDir({ -1, 0 });
+				break;
+			case 'D':
+			case 'd':
+				snake.SetDir({ 1, 0 });
+				break;
+			}
+		}
+		snake.Next(map);
 
-	//	map.PrintMap();
-	//	snake.PrintSnake();
-	//	SLP(50);
-	//}
+		map.PrintMap(console);
+		snake.PrintSnake(console);
+		console.Render();
+		SLP(50);
+	}
+
 
 	//콘솔창 일시정지 (종료 로그 안띄우게)
-	system("pause>nul");
+	//system("pause>nul");
 }
